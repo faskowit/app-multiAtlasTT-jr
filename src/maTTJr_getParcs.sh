@@ -324,10 +324,15 @@ then
 
 fi
 
-get_mask_frm_aparcAseg \
-    ${subjAparcAseg} \
-    ${outputDir} \
-    ${subj}
+if [[ ! -e ${outputDir}/bmask.nii.gz ]]
+then
+
+    get_mask_frm_aparcAseg \
+        ${subjAparcAseg} \
+        ${outputDir} \
+        ${subj}
+
+fi
 
 ####################################################################
 ####################################################################
@@ -489,3 +494,11 @@ source ${scriptBaseDir}/src/maTT_funcs.sh
 
 # run main with input args from shell script call
 main "$@"
+
+
+
+
+
+
+
+
