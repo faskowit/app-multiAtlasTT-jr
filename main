@@ -1,0 +1,119 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=1,vmem=8gb,walltime=2:00:00
+
+# dependencies:
+# python2.7 with numpy and nibabel
+# FreeSurfer
+
+set -e
+set -x
+
+####################################################################
+####################################################################
+# capture inputs from config
+
+INPUT_DIR=`jq -r '.fsin' config.json`
+FS_VERSION='6p0'
+
+# choice of: 'fsDK fsDest'
+atlasList=`jq -r '.atlas' config.json`
+export atlasList
+
+####################################################################
+####################################################################
+# setup FREESURFER
+
+# note, make sure you use the verison of FreeSurfer that you 
+# actually want...
+if [[ -z ${FREESURFER_HOME} ]]
+then
+    module load freesurfer
+fi
+
+# make sure that FS will run with the licence
+[[ -z "$FREESURFER_LICENSE" ]] && echo "Please set FREESURFER_LICENSE in .bashrc" && exit 1;
+
+####################################################################
+####################################################################
+
+workDir=''
+useSingulairty='no'
+dev="false"
+
+# if singularity present, and the dev var is false, run this app via
+# singulairty/Docker
+if [[ $(which singularity)  ]] && [[ ${dev}=="false" ]] 
+then 
+    workDir=/
+    useSingulairty="yes"
+else
+    # if singularity now present, we just local and want to keep it
+    # like that
+    workDir=${PWD}/
+fi
+
+export scriptBaseDir=${PWD}/
+
+####################################################################
+####################################################################
+# output!
+
+mkdir -p output
+
+####################################################################
+####################################################################
+# go into the folder where we also want output and setup notes file!
+
+touch log.txt
+
+# run it
+cmd="${scriptBaseDir}/src/maTTJr_getParcs.sh \
+	-d ${INPUT_DIR} \
+	-o output \
+	-f ${FS_VERSION}"
+if [[ ${useSingulairty}=="yes" ]] 
+then
+    export SINGULARITYENV_atlasList=${atlasList}
+    export SINGULARITYENV_atlasBaseDir=${atlasBaseDir}
+    export SINGULARITYENV_scriptBaseDir=${scriptBaseDir}
+    singularity exec --writable -e docker://faskowit/app-multiatlastt:0.0.2 bash -c "echo $FREESURFER_LICENSE > /usr/local/freesurfer/license.txt && $cmd"
+else
+    eval $cmd | tee -a log.txt
+fi
+
+####################################################################
+####################################################################
+# output handling
+
+mkdir -p parc mask
+for atlas in $atlasList
+	do
+		cp output/${atlas}/${atlas}_remap.nii.gz parc/parc.nii.gz
+		cp output/${atlas}/${atlas}_remap.nii.gz_remapKey.txt parc/key.txt
+		cp output/mask.nii.gz mask/mask.nii.gz
+	done
+	
+echo "{\"tags\": [\"${atlas}\" ]}" > product.json
+
+echo "finished maTTJr with status: $?"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
